@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::io::{stdin, BufRead, BufReader};
 
 #[derive(Debug)]
@@ -15,18 +16,20 @@ struct GameState {
 
 fn main() {
     let mut lines = BufReader::new(stdin().lock()).lines();
-    let mut total_possible: u32 = 0;
+    let mut total_power: u32 = 0;
     while let Some(Ok(line)) = lines.next() {
         let game = parse_line(&line);
-        if game
-            .states
-            .iter()
-            .all(|state| state.red <= 12 && state.green <= 13 && state.blue <= 14)
-        {
-            total_possible += game.id;
+        let mut min_red = 0u32;
+        let mut min_green = 0u32;
+        let mut min_blue = 0u32;
+        for state in game.states {
+            min_red = max(min_red, state.red);
+            min_green = max(min_green, state.green);
+            min_blue = max(min_blue, state.blue);
         }
+        total_power += min_red * min_green * min_blue;
     }
-    println!("Total possible games: {total_possible}");
+    println!("Total power of sets: {total_power}");
 }
 
 fn parse_line(line: &str) -> Game {
