@@ -32,7 +32,6 @@ mod char_buf {
 
     pub struct CharBuf {
         arr: [char; CHAR_BUF_LENGTH],
-        next_index: usize,
         rev: bool
     }
 
@@ -40,13 +39,8 @@ mod char_buf {
         pub fn new(rev: bool) -> Self {
             CharBuf {
                 arr: [' '; CHAR_BUF_LENGTH],
-                next_index: 0,
                 rev
             }
-        }
-
-        fn get_index(i: usize) -> usize {
-            i % CHAR_BUF_LENGTH
         }
 
         pub fn add_char(&mut self, c: char) -> Option<u32> {
@@ -54,19 +48,11 @@ mod char_buf {
                 return Some(digit);
             }
 
-            self.arr[self.next_index] = c;
-            self.next_index = CharBuf::get_index(self.next_index + 1);
-
-            let arranged_arr: [char; CHAR_BUF_LENGTH] = [
-                self.arr[CharBuf::get_index(self.next_index)],
-                self.arr[CharBuf::get_index(self.next_index+1)],
-                self.arr[CharBuf::get_index(self.next_index+2)],
-                self.arr[CharBuf::get_index(self.next_index+3)],
-                self.arr[CharBuf::get_index(self.next_index+4)],
-            ];
+            self.arr.rotate_left(1);
+            self.arr[4] = c;
 
             if self.rev {
-                match arranged_arr {
+                match self.arr {
                     [_, _, 'e', 'n', 'o'] => return Some(1u32),
                     [_, _, 'o', 'w', 't'] => return Some(2u32),
                     ['e', 'e', 'r', 'h', 't'] => return Some(3u32),
@@ -76,10 +62,10 @@ mod char_buf {
                     ['n', 'e', 'v', 'e', 's'] => return Some(7u32),
                     ['t', 'h', 'g', 'i', 'e'] => return Some(8u32),
                     [_, 'e', 'n', 'i', 'n'] => return Some(9u32),
-                    _ => ()
+                    _ => None
                 }
             } else {
-                match arranged_arr {
+                match self.arr {
                     [_, _, 'o', 'n', 'e'] => return Some(1u32),
                     [_, _, 't', 'w', 'o'] => return Some(2u32),
                     ['t', 'h', 'r', 'e', 'e'] => return Some(3u32),
@@ -89,12 +75,9 @@ mod char_buf {
                     ['s', 'e', 'v', 'e', 'n'] => return Some(7u32),
                     ['e', 'i', 'g', 'h', 't'] => return Some(8u32),
                     [_, 'n', 'i', 'n', 'e'] => return Some(9u32),
-                    _ => ()
+                    _ => None
                 }
             }
-
-            // Return None if no matches
-            None
         }
     }
 }
