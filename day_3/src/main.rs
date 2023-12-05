@@ -1,8 +1,12 @@
+use std::array;
+use std::collections::HashSet;
+use std::hash::{Hash};
 use std::io::{stdin, BufRead, BufReader};
+use std::rc::Rc;
 
 const GRID_SIZE: usize = 140;
 
-#[derive(Debug)]
+#[derive(Hash, Eq, PartialEq)]
 struct Number {
     x_start: usize,
     x_end: usize,
@@ -10,27 +14,57 @@ struct Number {
     val: u32,
 }
 
+struct Gear {
+    neighbor_indices: Vec<(usize, usize)>,
+}
+
+impl Gear {
+    fn new(y: usize, x: usize) -> Self {
+        let neighbors: [(i32, i32); 8] = [
+            (y as i32, x as i32 + 1),
+            (y as i32, x as i32 - 1),
+            (y as i32 - 1, x as i32 + 1),
+            (y as i32 - 1, x as i32),
+            (y as i32 - 1, x as i32 - 1),
+            (y as i32 + 1, x as i32 + 1),
+            (y as i32 + 1, x as i32),
+            (y as i32 + 1, x as i32 - 1),
+        ];
+        Self {
+            neighbor_indices: neighbors
+                .iter()
+                .filter(|(y, x)| *y >= 0 && *y < 140 && *x >= 0 && *x < 140)
+                .map(|(y, x)| -> (usize, usize) { (*y as usize, *x as usize) })
+                .collect(),
+        }
+    }
+}
+
 fn main() {
     let mut lines = BufReader::new(stdin().lock()).lines().enumerate();
-    let mut numbers: Vec<Number> = Vec::new();
-    let mut symbol_zones = [[false; GRID_SIZE]; GRID_SIZE];
+    let mut numbers: [[Option<Rc<Number>>; GRID_SIZE]; GRID_SIZE] =
+        array::from_fn(|_| -> [Option<Rc<Number>>; GRID_SIZE] {
+            array::from_fn(|_| -> Option<Rc<Number>> { None })
+        });
+    let mut gears: Vec<Gear> = Vec::new();
     while let Some((line_num, Ok(line))) = lines.next() {
-        parse_line(&line, &mut numbers, &mut symbol_zones, line_num);
+        parse_line(&line, &mut numbers, &mut gears, line_num);
     }
 
     let mut total: u32 = 0;
-    for Number {
-        x_start,
-        x_end,
-        y,
-        val,
-    } in numbers
-    {
-        for x in x_start..x_end {
-            if symbol_zones[y][x] {
-                total += val;
-                break;
+    for gear in gears {
+        let mut set = HashSet::new();
+        let mut gear_ratio = 1u32;
+        for (y, x) in gear.neighbor_indices {
+            if let Some(num) = &numbers[y][x] {
+                set.insert(num);
             }
+        }
+        if set.len() == 2 {
+            for num in set {
+                gear_ratio *= num.val;
+            }
+            total += gear_ratio;
         }
     }
     println!("Total: {total}");
@@ -38,8 +72,8 @@ fn main() {
 
 fn parse_line(
     line: &str,
-    numbers: &mut Vec<Number>,
-    symbol_zones: &mut [[bool; GRID_SIZE]; GRID_SIZE],
+    numbers: &mut [[Option<Rc<Number>>; GRID_SIZE]; GRID_SIZE],
+    gears: &mut Vec<Gear>,
     y: usize,
 ) {
     let mut num_start: Option<usize> = None;
@@ -60,42 +94,22 @@ fn parse_line(
                 if let Some(x_start) = num_start {
                     let val_slice = &line[x_start..x];
                     let val: u32 = val_slice.parse().expect("Invalid number");
-                    let num = Number {
+                    let num = Rc::new(Number {
                         x_start,
                         x_end: x,
                         y,
                         val,
-                    };
-                    numbers.push(num);
+                    });
+
+                    for x_val in x_start..x {
+                        numbers[y][x_val] = Some(Rc::clone(&num));
+                    }
+
                     num_start = None;
                 }
 
-                // Also add symbol zones if not a period
-                if c != '.' {
-                    if y > 0 {
-                        symbol_zones[y - 1][x] = true;
-                        if x > 0 {
-                            symbol_zones[y - 1][x - 1] = true;
-                        }
-                        if x < line.len() - 1 {
-                            symbol_zones[y - 1][x + 1] = true;
-                        }
-                    }
-                    if y < line.len() {
-                        symbol_zones[y + 1][x] = true;
-                        if x > 0 {
-                            symbol_zones[y + 1][x - 1] = true;
-                        }
-                        if x < line.len() - 1 {
-                            symbol_zones[y + 1][x + 1] = true;
-                        }
-                    }
-                    if x > 0 {
-                        symbol_zones[y][x - 1] = true;
-                    }
-                    if x < line.len() - 1 {
-                        symbol_zones[y][x + 1] = true;
-                    }
+                if c == '*' {
+                    gears.push(Gear::new(y, x));
                 }
             }
         }
