@@ -28,17 +28,78 @@ mod graph {
         pub fn get_node(&self, id: &NodeId) -> Option<&Node> {
             self.node_map.get(id)
         }
+
+        pub fn nodes(&self) -> impl Iterator<Item = &NodeId> {
+            self.node_map.keys()
+        }
+
+        pub fn num_steps<F>(
+            &self,
+            from: NodeId,
+            exit_condition: F,
+            directions: &Vec<Direction>,
+        ) -> usize
+        where
+            F: Fn(NodeId) -> bool,
+        {
+            let mut current_node_id = from;
+            let mut num_moves = 0;
+            let mut direction_iter = directions.iter().cycle();
+            while !exit_condition(current_node_id) {
+                let current_node = self
+                    .get_node(&current_node_id)
+                    .expect("Invalid current node");
+                let direction = direction_iter
+                    .next()
+                    .expect("Ran out of directions somehow");
+                match direction {
+                    Direction::Left => {
+                        current_node_id =
+                            self.get_node(&current_node.left).expect("No left node").id
+                    }
+                    Direction::Right => {
+                        current_node_id = self
+                            .get_node(&current_node.right)
+                            .expect("No right node")
+                            .id
+                    }
+                }
+                num_moves += 1;
+            }
+            num_moves
+        }
     }
 
     pub enum Direction {
         Left,
         Right,
     }
+
+    fn gcd(mut a: usize, mut b: usize) -> usize {
+        if a == b {
+            return a;
+        }
+        if b > a {
+            let temp = a;
+            a = b;
+            b = temp;
+        }
+        while b > 0 {
+            let temp = a;
+            a = b;
+            b = temp % b;
+        }
+        return a;
+    }
+
+    pub fn lcm(a: usize, b: usize) -> usize {
+        return a * (b / gcd(a, b));
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::graph::{Direction, Graph, Node};
+    use crate::graph::{lcm, Direction, Graph, Node, NodeId};
     use std::fs::File;
     use std::io::{BufRead, BufReader, Read};
 
@@ -78,23 +139,28 @@ mod tests {
     fn part_1() {
         let file = File::open("input").expect("Expected a file called 'input'");
         let (directions, graph) = parse_graph(file);
-        let mut current_node_id = ['A', 'A', 'A'];
-        let mut num_moves = 0;
-        while current_node_id != ['Z', 'Z', 'Z'] {
-            let iter = directions.iter();
-            for direction in iter {
-                let current_node = graph.get_node(&current_node_id).expect("Invalid current node");
-                match direction {
-                    Direction::Left => {
-                        current_node_id = graph.get_node(&current_node.left).expect("No left node").id
-                    }
-                    Direction::Right => {
-                        current_node_id = graph.get_node(&current_node.right).expect("No right node").id
-                    }
-                }
-                num_moves += 1;
-            }
-        }
+        let num_moves = graph.num_steps(
+            ['A', 'A', 'A'],
+            |node_id| node_id == ['Z', 'Z', 'Z'],
+            &directions,
+        );
         println!("Number of moves: {num_moves}");
+    }
+
+    #[test]
+    fn part_2() {
+        let file = File::open("input").expect("Expected a file called 'input'");
+        let (directions, graph) = parse_graph(file);
+        let mut start_node_ids: Vec<&NodeId> = graph.nodes().filter(|id| id[2] == 'A').collect();
+        let min_num_steps: Vec<usize> = start_node_ids
+            .iter()
+            .map(|node_id| graph.num_steps(**node_id, |id| id[2] == 'Z', &directions))
+            .collect();
+        // Get LCM of the shortest paths for each
+        let num_steps: usize = min_num_steps
+            .into_iter()
+            .reduce(|acc, e| lcm(acc, e))
+            .expect("Unable to find LCM");
+        println!("Number of moves: {num_steps}");
     }
 }
