@@ -17,7 +17,7 @@ fn get_delta_sequence(seq: &Sequence) -> (Sequence, bool) {
     (next_seq, is_all_zero)
 }
 
-fn extrapolate_value(sequences: Vec<Rc<Sequence>>) -> Result<i64, Box<dyn Error>> {
+fn extrapolate_last_value(sequences: &Vec<Rc<Sequence>>) -> Result<i64, Box<dyn Error>> {
     let mut last_delta = *sequences
         .last()
         .ok_or("Missing last value")?
@@ -25,6 +25,18 @@ fn extrapolate_value(sequences: Vec<Rc<Sequence>>) -> Result<i64, Box<dyn Error>
         .ok_or("Missing last value")?;
     for seq in sequences.iter().rev() {
         last_delta = seq.last().ok_or("Missing last value")? + last_delta;
+    }
+    Ok(last_delta)
+}
+
+fn extrapolate_first_value(sequences: &Vec<Rc<Sequence>>) -> Result<i64, Box<dyn Error>> {
+    let mut last_delta = *sequences
+        .last()
+        .ok_or("Missing last value")?
+        .first()
+        .ok_or("Missing first value")?;
+    for seq in sequences.iter().rev() {
+        last_delta = seq.first().ok_or("Missing last value")? - last_delta;
     }
     Ok(last_delta)
 }
@@ -38,9 +50,10 @@ mod tests {
     use std::rc::Rc;
 
     #[test]
-    fn part_1() -> Result<(), Box<dyn Error>> {
+    fn part_1_and_2() -> Result<(), Box<dyn Error>> {
         let mut lines = BufReader::new(File::open("input")?).lines();
-        let mut total = 0;
+        let mut total_last = 0;
+        let mut total_first = 0;
         while let Some(Ok(line)) = lines.next() {
             let sequence: Sequence = line
                 .split_whitespace()
@@ -59,9 +72,11 @@ mod tests {
                     break;
                 }
             }
-            total += extrapolate_value(delta_sequences)?;
+            total_last += extrapolate_last_value(&delta_sequences)?;
+            total_first += extrapolate_first_value(&delta_sequences)?;
         }
-        println!("Total: {}", total);
+        println!("Total for extrapolating at end: {}", total_last);
+        println!("Total for extrapolating at beginning: {}", total_first);
         Ok(())
     }
 }
